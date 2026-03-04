@@ -3,11 +3,14 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
+import Login from './pages/Login'; // <--- NEW IMPORT
 import './index.css';
 
 const Navbar = () => {
   const location = useLocation();
   const isLanding = location.pathname === '/';
+  // Hide navbar on login screen
+  if (location.pathname === '/login') return null;
 
   return (
     <nav style={{
@@ -36,6 +39,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<Login />} />  {/* <--- NEW ROUTE */}
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </div>
