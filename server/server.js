@@ -2,21 +2,14 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { generateNetworkData, addZone } = require('./controllers/simulation');
+const { generateNetworkData, addZone, removeZone } = require('./controllers/simulation');
 
 const app = express();
-
-// 1. Allow any frontend port to connect (Fixes the ghost terminal issue)
 app.use(cors());
-app.use(express.json()); // Allows us to read JSON POST bodies
+app.use(express.json());
 
-// --- REST API ROUTES ---
-
-// 2. Hackathon Admin Login Route
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    
-    // IMPORTANT: Make sure you type these exactly when logging in!
     if (username === 'admin' && password === 'admin123') {
         res.json({ success: true, token: 'ionet-demo-token-8923' });
     } else {
@@ -24,40 +17,46 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// 3. Add New Room Route
 app.post('/api/rooms', (req, res) => {
     const { roomName } = req.body;
     if (addZone(roomName)) {
-        res.json({ success: true, message: `${roomName} added to IONET mesh.` });
+        res.json({ success: true, message: `${roomName} added to mesh.` });
     } else {
-        res.status(400).json({ success: false, message: 'Room already exists or is invalid.' });
+        res.status(400).json({ success: false, message: 'Room already exists.' });
     }
 });
 
-// --- WEBSOCKET SETUP ---
+// THE DELETE ROUTE
+app.delete('/api/rooms/:identifier', (req, res) => {
+    const identifier = req.params.identifier;
+    if (removeZone(identifier)) {
+        res.json({ success: true, message: `${identifier.toUpperCase()} permanently disconnected.` });
+    } else {
+        res.status(404).json({ success: false, message: `Could not find ${identifier} to delete.` });
+    }
+});
+
+app.get('/api/monthly-savings', (req, res) => {
+    const monthlyData = [
+        { month: 'Jan', kwhSaved: 850 },
+        { month: 'Feb', kwhSaved: 920 },
+        { month: 'Mar', kwhSaved: 1100 },
+        { month: 'Apr', kwhSaved: 1250 },
+        { month: 'May', kwhSaved: 1400 },
+        { month: 'Jun', kwhSaved: 1550 }
+    ];
+    res.json({ success: true, data: monthlyData });
+});
+
 const server = http.createServer(app);
-
-// 4. Update Socket CORS to accept all connections
-const io = new Server(server, {
-    cors: { 
-        origin: "*", 
-        methods: ["GET", "POST"] 
-    }
-});
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 io.on('connection', (socket) => {
-    console.log('Frontend connected to IONET Simulation:', socket.id);
-    
     const simulationInterval = setInterval(() => {
         socket.emit('ionet_telemetry', generateNetworkData());
     }, 3000);
-
-    socket.on('disconnect', () => {
-        clearInterval(simulationInterval);
-        console.log('Frontend disconnected');
-    });
+    socket.on('disconnect', () => clearInterval(simulationInterval));
 });
 
-// 5. Run on the new, safe port (5001)
 const PORT = 5001;
 server.listen(PORT, () => console.log(`ClimateSense Backend running on port ${PORT}`));
